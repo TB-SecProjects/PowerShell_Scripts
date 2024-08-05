@@ -92,6 +92,71 @@ function Get-TeamRoster {
     }
 }
 
+function Get-TeamSchedule {
+    param (
+        [string]$TeamId,
+        [string]$SeasonYear
+    )
+
+    # Construct the API URL with the season year
+    $scheduleApiUrl = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/$TeamId/schedule?season=$SeasonYear"
+
+    try {
+        # Make the API call to fetch team schedule data
+        $response = Invoke-WebRequest -Uri $scheduleApiUrl -Method Get
+
+        # Parse the response body as JSON
+        $data = $response.Content | ConvertFrom-Json
+
+        # Check if the 'events' array is present and not null
+        if ($data -and $data.events -and $data.events.Count -gt 0) {
+            Write-Host "------------------------"
+            Write-Host "Team Schedule:"
+            Write-Host "------------------------"
+            
+            # Create a list to hold game details
+            $schedule = @()
+
+            # Iterate through the events to collect game information
+            foreach ($event in $data.events) {
+                # Determine if the game is home or away
+                $homeTeam = $event.competitions[0].competitors | Where-Object { $_.homeAway -eq 'home' }
+                $awayTeam = $event.competitions[0].competitors | Where-Object { $_.homeAway -eq 'away' }
+                
+                # Ensure home and away teams are correctly identified
+                if ($homeTeam -and $awayTeam) {
+                    $isHome = ($homeTeam.team.id -eq $TeamId)
+                    $opponent = if ($isHome) { $awayTeam.team.displayName } else { $homeTeam.team.displayName }
+                    $homeOrAway = if ($isHome) { "Home" } else { "Away" }
+
+                    # Convert the event date to desired format
+                    $eventDate = [datetime]::Parse($event.date)
+                    $formattedDateTime = $eventDate.ToString("MM-dd-yyyy hh:mm tt")
+
+                    $schedule += [PSCustomObject]@{
+                        DateTime     = $formattedDateTime
+                        Opponent     = $opponent
+                        HomeOrAway   = $homeOrAway
+                        Week         = $event.week.text
+                    }
+                }
+            }
+
+            # Display the schedule in a table format
+            if ($schedule.Count -gt 0) {
+                $schedule | Format-Table -AutoSize
+            } else {
+                Write-Host "No games found in the schedule."
+            }
+        } else {
+            Write-Host "No schedule data available or structure has changed."
+        }
+    }
+    catch {
+        Write-Host "Failed to retrieve team schedule. Error: $_"
+    }
+}
+
 
 function Get-TeamId {
     param (
@@ -137,7 +202,7 @@ function Show-TeamOptionsMenu {
         [string]$TeamId
     )
 
-    $options = @("View Team Record", "View Team Roster", "Search for a Different Team", "Return to Main Menu", "Exit")
+    $options = @("View Team Record", "View Team Roster", "View Team Schedule", "Search for a Different Team", "Return to Main Menu", "Exit")
 
     while ($true) {
         Show-Menu -Title "Team Options" -Options $options
@@ -152,12 +217,16 @@ function Show-TeamOptionsMenu {
                 Get-TeamRoster -TeamId $TeamId
             }
             3 {
-                return
+                $seasonYear = Read-Host "Enter the season year (e.g., 2024)"
+                Get-TeamSchedule -TeamId $TeamId -SeasonYear $seasonYear
             }
             4 {
-                return Main-Menu # This will return from the options menu to the main menu
+                return
             }
             5 {
+                return Main-Menu
+            }
+            6 {
                 exit
             }
             default {
@@ -166,6 +235,8 @@ function Show-TeamOptionsMenu {
         }
     }
 }
+
+
 
 function Show-TeamSearchMenu {
     param (
