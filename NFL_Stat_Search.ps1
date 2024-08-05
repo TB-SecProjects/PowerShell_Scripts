@@ -15,6 +15,7 @@ function Show-Menu {
 function Get-TeamRecord {
     param (
         [string]$TeamId,
+        [string]$TeamName,
         [string]$Season
     )
 
@@ -29,7 +30,7 @@ function Get-TeamRecord {
 
         if ($data -and $data.items) {
             Write-Host "------------------------"
-            Write-Host "Team Record:"
+            Write-Host "$TeamName Record:"
             Write-Host "------------------------"
             
             # Iterate through the items to find the 'overall' record
@@ -50,7 +51,8 @@ function Get-TeamRecord {
 
 function Get-TeamRoster {
     param (
-        [string]$TeamId
+        [string]$TeamId,
+        [string]$TeamName
     )
 
     $rosterApiUrl = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/$TeamId/roster"
@@ -64,7 +66,7 @@ function Get-TeamRoster {
 
         if ($data -and $data.athletes) {
             Write-Host "------------------------"
-            Write-Host "Team Roster:"
+            Write-Host "$TeamName Roster:"
             Write-Host "------------------------"
             
             # Create a list to hold player details
@@ -82,7 +84,11 @@ function Get-TeamRoster {
             }
 
             # Display the roster in a table format
-            $roster | Format-Table -AutoSize
+            if ($roster.Count -gt 0) {
+                $roster | Format-Table -AutoSize
+            } else {
+                Write-Host "No roster data available."
+            }
         } else {
             Write-Host "No roster data available."
         }
@@ -95,6 +101,7 @@ function Get-TeamRoster {
 function Get-TeamSchedule {
     param (
         [string]$TeamId,
+        [string]$TeamName,
         [string]$SeasonYear
     )
 
@@ -111,7 +118,7 @@ function Get-TeamSchedule {
         # Check if the 'events' array is present and not null
         if ($data -and $data.events -and $data.events.Count -gt 0) {
             Write-Host "------------------------"
-            Write-Host "Team Schedule:"
+            Write-Host "$TeamName Schedule:"
             Write-Host "------------------------"
             
             # Create a list to hold game details
@@ -199,7 +206,8 @@ function Get-TeamId {
 function Show-TeamOptionsMenu {
     param (
         [string]$ApiUrl,
-        [string]$TeamId
+        [string]$TeamId,
+        [string]$TeamName
     )
 
     $options = @("View Team Record", "View Team Roster", "View Team Schedule", "Search for a Different Team", "Return to Main Menu", "Exit")
@@ -211,14 +219,14 @@ function Show-TeamOptionsMenu {
         switch ($selection) {
             1 {
                 $season = Read-Host "Enter the season (e.g., 2024)"
-                Get-TeamRecord -TeamId $TeamId -Season $season
+                Get-TeamRecord -TeamId $TeamId -TeamName $TeamName -Season $season
             }
             2 {
-                Get-TeamRoster -TeamId $TeamId
+                Get-TeamRoster -TeamId $TeamId -TeamName $TeamName
             }
             3 {
                 $seasonYear = Read-Host "Enter the season year (e.g., 2024)"
-                Get-TeamSchedule -TeamId $TeamId -SeasonYear $seasonYear
+                Get-TeamSchedule -TeamId $TeamId -TeamName $TeamName -SeasonYear $seasonYear
             }
             4 {
                 return
@@ -236,8 +244,6 @@ function Show-TeamOptionsMenu {
     }
 }
 
-
-
 function Show-TeamSearchMenu {
     param (
         [string]$ApiUrl
@@ -252,7 +258,7 @@ function Show-TeamSearchMenu {
         
         if ($teamId) {
             # Call the function to show team options menu
-            Show-TeamOptionsMenu -ApiUrl $ApiUrl -TeamId $teamId
+            Show-TeamOptionsMenu -ApiUrl $ApiUrl -TeamId $teamId -TeamName $teamName
         }
         else {
             Write-Host "Team '$teamName' not found."
